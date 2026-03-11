@@ -1,0 +1,70 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --void:         #02050a;
+  --surface:      #060c14;
+  --panel:        #0a1220;
+  --card:         #0e1828;
+  --border:       #152034;
+  --border-bright:#1e3050;
+  --accent:       #0ff;
+  --accent-dim:   rgba(0,255,255,0.12);
+  --red:          #ff2d55;
+  --red-dim:      rgba(255,45,85,0.12);
+  --amber:        #ffb300;
+  --amber-dim:    rgba(255,179,0,0.12);
+  --green:        #00e676;
+  --green-dim:    rgba(0,230,118,0.12);
+  --blue:         #448aff;
+  --text:         #c8daf0;
+  --text-dim:     #4a6688;
+  --text-bright:  #e8f4ff;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+  --font-mono:    'DM Mono', monospace;
+}
+
+html, body {
+  height: 100%;
+  background: var(--void);
+  color: var(--text);
+  font-family: var(--font-body);
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar        { width: 4px; height: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--border-bright); border-radius: 2px; }
+
+/* ── Leaflet dark popup overrides ── */
+.leaflet-popup-content-wrapper {
+  background:   var(--card)         !important;
+  border:       1px solid var(--border-bright) !important;
+  border-radius: 8px               !important;
+  color:        var(--text)         !important;
+  font-family:  var(--font-mono)    !important;
+  font-size:    11px                !important;
+  box-shadow:   0 8px 32px rgba(0,0,0,0.6) !important;
+}
+.leaflet-popup-tip          { background: var(--card)     !important; }
+.leaflet-popup-close-button { color:      var(--text-dim) !important; }
+.leaflet-container          { background: #020810         !important; }
+
+/* ── Live feed row animations ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(-6px); background: rgba(0,255,255,0.04); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.feed-row-new          { animation: rowIn 0.35s ease forwards; }
+.feed-row:hover        { background: rgba(14,24,40,0.8) !important; }

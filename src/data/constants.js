@@ -1,0 +1,46 @@
+const MERCHANTS = [
+  { name: "Whole Foods",    cat: "grocery"      },
+  { name: "Amazon Prime",   cat: "electronics"  },
+  { name: "Delta Airlines", cat: "travel"       },
+  { name: "Starbucks",      cat: "food"         },
+  { name: "Nike Flagship",  cat: "retail"       },
+  { name: "Tiffany & Co.", cat: "luxury"       },
+  { name: "Shell Gas",      cat: "fuel"         },
+  { name: "Netflix",        cat: "subscription" },
+  { name: "Walmart",        cat: "grocery"      },
+  { name: "Coinbase Pro",   cat: "crypto"       },
+  { name: "Louis Vuitton",  cat: "luxury"       },
+  { name: "McDonald's",     cat: "food"         },
+  { name: "Best Buy",       cat: "electronics"  },
+  { name: "Hilton Hotels",  cat: "travel"       },
+  { name: "CVS Pharmacy",   cat: "health"       },
+  { name: "FX Exchange",    cat: "crypto"       },
+  { name: "Rolex Boutique", cat: "luxury"       },
+  { name: "Uber Eats",      cat: "food"         },
+  { name: "Apple Store",    cat: "electronics"  },
+  { name: "Target",         cat: "retail"       },
+];
+
+const LOCS = [
+  { city: "New York",   cc: "US", lat:  40.71, lng:  -74.01 },
+  { city: "London",     cc: "GB", lat:  51.51, lng:   -0.13 },
+  { city: "Mumbai",     cc: "IN", lat:  19.08, lng:   72.88 },
+  { city: "Lagos",      cc: "NG", lat:   6.52, lng:    3.38 },
+  { city: "Moscow",     cc: "RU", lat:  55.75, lng:   37.62 },
+  { city: "Beijing",    cc: "CN", lat:  39.91, lng:  116.39 },
+  { city: "São Paulo",  cc: "BR", lat: -23.55, lng:  -46.63 },
+  { city: "Sydney",     cc: "AU", lat: -33.87, lng:  151.21 },
+  { city: "Tokyo",      cc: "JP", lat:  35.68, lng:  139.69 },
+  { city: "Dubai",      cc: "AE", lat:  25.20, lng:   55.27 },
+  { city: "Toronto",    cc: "CA", lat:  43.65, lng:  -79.38 },
+  { city: "Berlin",     cc: "DE", lat:  52.52, lng:   13.40 },
+  { city: "Singapore",  cc: "SG", lat:   1.35, lng:  103.82 },
+  { city: "Chicago",    cc: "US", lat:  41.88, lng:  -87.63 },
+  { city: "Nairobi",    cc: "KE", lat:  -1.29, lng:   36.82 },
+];
+
+const USERS = [
+  "Alex M.",  "Jamie R.", "Sam T.",   "Casey L.", "Morgan B.",
+  "Jordan K.","Taylor S.","Riley P.", "Drew H.",  "Quinn A.",
+  "Blake N.", "Avery C.", "Peyton W.","Reese D.", "Parker F.",
+];

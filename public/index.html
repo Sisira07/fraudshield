@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FraudShield — Intelligence Platform</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Third-party libraries -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <style>
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --void:         #02050a;
+  --surface:      #060c14;
+  --panel:        #0a1220;
+  --card:         #0e1828;
+  --border:       #152034;
+  --border-bright:#1e3050;
+  --accent:       #0ff;
+  --accent-dim:   rgba(0,255,255,0.12);
+  --red:          #ff2d55;
+  --red-dim:      rgba(255,45,85,0.12);
+  --amber:        #ffb300;
+  --amber-dim:    rgba(255,179,0,0.12);
+  --green:        #00e676;
+  --green-dim:    rgba(0,230,118,0.12);
+  --blue:         #448aff;
+  --text:         #c8daf0;
+  --text-dim:     #4a6688;
+  --text-bright:  #e8f4ff;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+  --font-mono:    'DM Mono', monospace;
+}
+
+html, body {
+  height: 100%;
+  background: var(--void);
+  color: var(--text);
+  font-family: var(--font-body);
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar        { width: 4px; height: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--border-bright); border-radius: 2px; }
+
+/* ── Leaflet dark popup overrides ── */
+.leaflet-popup-content-wrapper {
+  background:   var(--card)         !important;
+  border:       1px solid var(--border-bright) !important;
+  border-radius: 8px               !important;
+  color:        var(--text)         !important;
+  font-family:  var(--font-mono)    !important;
+  font-size:    11px                !important;
+  box-shadow:   0 8px 32px rgba(0,0,0,0.6) !important;
+}
+.leaflet-popup-tip          { background: var(--card)     !important; }
+.leaflet-popup-close-button { color:      var(--text-dim) !important; }
+.leaflet-container          { background: #020810         !important; }
+
+/* ── Live feed row animations ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(-6px); background: rgba(0,255,255,0.04); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.feed-row-new          { animation: rowIn 0.35s ease forwards; }
+.feed-row:hover        { background: rgba(14,24,40,0.8) !important; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+
+const MERCHANTS = [
+  { name: "Whole Foods",    cat: "grocery"      },
+  { name: "Amazon Prime",   cat: "electronics"  },
+  { name: "Delta Airlines", cat: "travel"       },
+  { name: "Starbucks",      cat: "food"         },
+  { name: "Nike Flagship",  cat: "retail"       },
+  { name: "Tiffany & Co.", cat: "luxury"       },
+  { name: "Shell Gas",      cat: "fuel"         },
+  { name: "Netflix",        cat: "subscription" },
+  { name: "Walmart",        cat: "grocery"      },
+  { name: "Coinbase Pro",   cat: "crypto"       },
+  { name: "Louis Vuitton",  cat: "luxury"       },
+  { name: "McDonald's",     cat: "food"         },
+  { name: "Best Buy",       cat: "electronics"  },
+  { name: "Hilton Hotels",  cat: "travel"       },
+  { name: "CVS Pharmacy",   cat: "health"       },
+  { name: "FX Exchange",    cat: "crypto"       },
+  { name: "Rolex Boutique", cat: "luxury"       },
+  { name: "Uber Eats",      cat: "food"         },
+  { name: "Apple Store",    cat: "electronics"  },
+  { name: "Target",         cat: "retail"       },
+];
+
+const LOCS = [
+  { city: "New York",   cc: "US", lat:  40.71, lng:  -74.01 },
+  { city: "London",     cc: "GB", lat:  51.51, lng:   -0.13 },
+  { city: "Mumbai",     cc: "IN", lat:  19.08, lng:   72.88 },
+  { city: "Lagos",      cc: "NG", lat:   6.52, lng:    3.38 },
+  { city: "Moscow",     cc: "RU", lat:  55.75, lng:   37.62 },
+  { city: "Beijing",    cc: "CN", lat:  39.91, lng:  116.39 },
+  { city: "São Paulo",  cc: "BR", lat: -23.55, lng:  -46.63 },
+  { city: "Sydney",     cc: "AU", lat: -33.87, lng:  151.21 },
+  { city: "Tokyo",      cc: "JP", lat:  35.68, lng:  139.69 },
+  { city: "Dubai",      cc: "AE", lat:  25.20, lng:   55.27 },
+  { city: "Toronto",    cc: "CA", lat:  43.65, lng:  -79.38 },
+  { city: "Berlin",     cc: "DE", lat:  52.52, lng:   13.40 },
+  { city: "Singapore",  cc: "SG", lat:   1.35, lng:  103.82 },
+  { city: "Chicago",    cc: "US", lat:  41.88, lng:  -87.63 },
+  { city: "Nairobi",    cc: "KE", lat:  -1.29, lng:   36.82 },
+];
+
+const USERS = [
+  "Alex M.",  "Jamie R.", "Sam T.",   "Casey L.", "Morgan B.",
+  "Jordan K.","Taylor S.","Riley P.", "Drew H.",  "Quinn A.",
+  "Blake N.", "Avery C.", "Peyton W.","Reese D.", "Parker F.",
+];
+  </script>
+
+
+  <script type="text/babel">
+
+const userProfiles = {};
+let txnId = 1000;
+
+
+function genTxn() {
+  const id   = `TXN-${txnId++}`;
+  const user = USERS[Math.floor(Math.random() * USERS.length)];
+  const m    = MERCHANTS[Math.floor(Math.random() * MERCHANTS.length)];
+  const loc  = LOCS[Math.floor(Math.random() * LOCS.length)];
+  const hour = new Date().getHours();
+  const r    = Math.random();
+
+  const amount =
+    r < 0.1 ? [1, 10, 100, 1000][Math.floor(Math.random() * 4)]
+    : r < 0.2 ? parseFloat((Math.random() * 4000 + 1000).toFixed(2))
+    : parseFloat((Math.random() * 200 + 5).toFixed(2));
+
+  // Bootstrap a profile the first time we see a user
+  if (!userProfiles[user]) {
+    userProfiles[user] = {
+      avg:    50 + Math.random() * 100,
+      lastCc: loc.cc,
+      recent: [],   // timestamps of recent txns (ms)
+    };
+  }
+
+  const p = userProfiles[user];
+  const txn = {
+    id,
+    user,
+    merchant: m.name,
+    cat:      m.cat,
+    amount,
+    loc,
+    hour,
+    prevCc:   p.lastCc,
+    avg:      p.avg,
+    recent:   [...p.recent],
+    ts:       new Date(),
+  };
+
+  // Update profile state
+  p.lastCc = loc.cc;
+  p.recent.push(Date.now());
+  p.recent = p.recent.filter(t => Date.now() - t < 300_000); // 5-min sliding window
+
+  return txn;
+}
+  </script>
+
+  <script type="text/babel">
+
+const RULES = [
+  {
+    id: "velocity",
+    name: "Velocity Check",
+    desc: "3+ transactions in under 60s",
+    weight: 25,
+    check: t => t.recent.filter(x => Date.now() - x < 60_000).length >= 3,
+  },
+  {
+    id: "geo",
+    name: "Geo Impossibility",
+    desc: "Country mismatch from last transaction",
+    weight: 30,
+    check: t => t.loc.cc !== t.prevCc && t.prevCc !== null,
+  },
+  {
+    id: "round",
+    name: "Round Number Flag",
+    desc: "Exact $1 / $10 / $100 / $1 000 amount",
+    weight: 20,
+    check: t => [1, 10, 100, 1000].includes(t.amount),
+  },
+  {
+    id: "hour",
+    name: "Unusual Hour",
+    desc: "Transaction between 1 AM – 4 AM",
+    weight: 15,
+    check: t => t.hour >= 1 && t.hour <= 4,
+  },
+  {
+    id: "luxury",
+    name: "Merchant Mismatch",
+    desc: "Luxury spend from low-avg user",
+    weight: 20,
+    check: t => t.cat === "luxury" && t.avg < 100,
+  },
+  {
+    id: "spike",
+    name: "Amount Spike",
+    desc: "5× above user average spend",
+    weight: 25,
+    check: t => t.amount >= t.avg * 5,
+  },
+  {
+    id: "crypto",
+    name: "Crypto Flag",
+    desc: "High-risk crypto exchange transaction",
+    weight: 15,
+    check: t => t.cat === "crypto",
+  },
+];
+
+function analyze(txn) {
+  let score = 0;
+  const fired = [];
+  const clean = [];
+
+  RULES.forEach(r => {
+    if (r.check(txn)) {
+      score += r.weight;
+      fired.push(r);
+    } else {
+      clean.push(r);
+    }
+  });
+
+  score = Math.min(score, 100);
+
+  const status =
+    score >= 66 ? "fraud"      :
+    score >= 31 ? "suspicious" :
+    "safe";
+
+  const reason = fired.length ? fired[0].desc : "No anomalies detected";
+
+  return { score, status, reason, fired, clean };
+}
+  </script>
+
+  
+  <script type="text/babel">
+
+function Counter({ value, color }) {
+  const [display, setDisplay] = React.useState(0);
+  React.useEffect(() => {
+    const diff = value - display;
+    if (diff === 0) return;
+    const step  = Math.ceil(Math.abs(diff) / 4);
+    const timer = setTimeout(
+      () => setDisplay(d => d + Math.sign(diff) * Math.min(step, Math.abs(diff))),
+      40
+    );
+    return () => clearTimeout(timer);
+  }, [value, display]);
+
+  return (
+    <span style={{ color, fontFamily: 'var(--font-display)', fontSize: 28, lineHeight: 1 }}>
+      {display}
+    </span>
+  );
+}
+
+// ── Stat card with animated counter ──
+function StatCard({ label, value, color, icon }) {
+  const dimColor =
+    color === '#ff2d55' ? 'var(--red-dim)'   :
+    color === '#ffb300' ? 'var(--amber-dim)' :
+    color === '#00e676' ? 'var(--green-dim)' :
+    'var(--accent-dim)';
+
+  return (
+    <div style={{
+      background: 'var(--card)',
+      border: `1px solid ${color}30`,
+      borderRadius: 10,
+      padding: '14px 18px',
+      display: 'flex', flexDirection: 'column', gap: 6,
+      position: 'relative', overflow: 'hidden',
+    }}>
+      <div style={{
+        position: 'absolute', top: 0, right: 0,
+        width: 60, height: 60,
+        background: dimColor, borderRadius: '0 10px 0 60px',
+      }} />
+      <span style={{ fontSize: 18, position: 'relative', zIndex: 1 }}>{icon}</span>
+      <Counter value={value} color={color} />
+      <span style={{
+        fontSize: 10, color: 'var(--text-dim)',
+        letterSpacing: 2, textTransform: 'uppercase',
+        fontFamily: 'var(--font-mono)',
+      }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// ── Status badge (SAFE / SUSPECT / FRAUD) ──
+function Badge({ status }) {
+  const cfg = {
+    safe:       ['#00e676', 'var(--green-dim)', 'SAFE'],
+    suspicious: ['#ffb300', 'var(--amber-dim)', 'SUSPECT'],
+    fraud:      ['#ff2d55', 'var(--red-dim)',   'FRAUD'],
+  };
+  const [c, bg, label] = cfg[status] || cfg.safe;
+  return (
+    <span style={{
+      background: bg, color: c,
+      border: `1px solid ${c}40`,
+      borderRadius: 20, padding: '2px 10px',
+      fontSize: 10, fontFamily: 'var(--font-mono)',
+      fontWeight: 500, letterSpacing: 1,
+    }}>
+      {label}
+    </span>
+  );
+}
+
+// ── Horizontal risk score bar ─────────
+function RiskBar({ score, status }) {
+  const c =
+    status === 'fraud'      ? '#ff2d55' :
+    status === 'suspicious' ? '#ffb300' :
+    '#00e676';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{
+        width: 56, height: 3,
+        background: 'var(--border)', borderRadius: 2, overflow: 'hidden',
+      }}>
+        <div style={{
+          width: `${score}%`, height: '100%',
+          background: c, borderRadius: 2, transition: 'width 0.4s',
+        }} />
+      </div>
+      <span style={{ fontSize: 11, color: c, fontFamily: 'var(--font-mono)', minWidth: 24 }}>
+        {score}
+      </span>
+    </div>
+  );
+}
+
+// ── Chart wrapper card ────────────────
+function ChartCard({ title, subtitle, children }) {
+  return (
+    <div style={{
+      background: 'var(--card)',
+      border: '1px solid var(--border)',
+      borderRadius: 12, padding: '16px 18px',
+      display: 'flex', flexDirection: 'column', gap: 12,
+    }}>
+      <div>
+        <div style={{
+          fontFamily: 'var(--font-display)', fontSize: 16,
+          letterSpacing: 1, color: 'var(--text-bright)',
+        }}>
+          {title}
+        </div>
+        <div style={{
+          fontSize: 10, color: 'var(--text-dim)',
+          fontFamily: 'var(--font-mono)', marginTop: 2,
+        }}>
+          {subtitle}
+        </div>
+      </div>
+      <div style={{ flex: 1, position: 'relative', minHeight: 180 }}>{children}</div>
+    </div>
+  );
+}
+
+// ── Compact header stat pill ──────────
+function MiniStat({ label, value }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      background: 'var(--card)',
+      border: '1px solid var(--border)',
+      borderRadius: 8, padding: '5px 12px',
+    }}>
+      <span style={{
+        fontSize: 10, color: 'var(--text-dim)',
+        fontFamily: 'var(--font-mono)', letterSpacing: 1,
+      }}>
+        {label}
+      </span>
+      <span style={{ fontFamily: 'var(--font-display)', fontSize: 20 }}>{value}</span>
+    </div>
+  );
+}
+
+// ── Labelled form field wrapper ───────
+function Field({ label, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={{
+        fontSize: 10, color: 'var(--text-dim)',
+        fontFamily: 'var(--font-mono)', letterSpacing: 1.5, textTransform: 'uppercase',
+      }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+// ── Coloured tag pill (BankLookup) ────
+function Pill({ color, children }) {
+  return (
+    <span style={{
+      background: `${color}18`, color,
+      border: `1px solid ${color}40`,
+      borderRadius: 20, padding: '4px 12px',
+      fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 500,
+    }}>
+      {children}
+    </span>
+  );
+}
+  </script>
+
+  <script type="text/babel">
+
+function Header({ stats, paused, onToggle, onReport }) {
+  return (
+    <header style={{
+      background: 'var(--panel)',
+      borderBottom: '1px solid var(--border)',
+      padding: '10px 24px',
+      display: 'flex', alignItems: 'center', gap: 20,
+      flexShrink: 0,
+    }}>
+
+      {/* Branding */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <span style={{
+          fontFamily: 'var(--font-display)', fontSize: 28,
+          color: 'var(--accent)', letterSpacing: 2,
+          textShadow: '0 0 20px rgba(0,255,255,0.4)',
+        }}>
+          FRAUDSHIELD
+        </span>
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: 10,
+          color: 'var(--text-dim)', letterSpacing: 2,
+        }}>
+          INTELLIGENCE PLATFORM
+        </span>
+      </div>
+
+      {/* Live counters */}
+      <div style={{
+        flex: 1, display: 'flex',
+        alignItems: 'center', justifyContent: 'center', gap: 12,
+      }}>
+        <MiniStat label="TOTAL"   value={stats.total}      />
+        <MiniStat label="SAFE"    value={stats.safe}       />
+        <MiniStat label="SUSPECT" value={stats.suspicious} />
+        <MiniStat label="FRAUD"   value={stats.fraud}      />
+      </div>
+
+      {/* Controls */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          onClick={onToggle}
+          style={{
+            background:   paused ? 'var(--green)' : 'transparent',
+            color:        paused ? '#000'          : 'var(--text)',
+            border:       '1px solid var(--border-bright)',
+            borderRadius: 8, padding: '7px 14px',
+            fontFamily:   'var(--font-mono)', fontSize: 11,
+            cursor: 'pointer', transition: 'all 0.2s', letterSpacing: 0.5,
+          }}
+        >
+          {paused ? '▶ RESUME' : '⏸ PAUSE'}
+        </button>
+
+        <button
+          onClick={onReport}
+          style={{
+            background:   'var(--accent)', color: '#000',
+            border:       'none', borderRadius: 8, padding: '7px 14px',
+            fontFamily:   'var(--font-mono)', fontSize: 11,
+            fontWeight:   600, cursor: 'pointer', letterSpacing: 0.5,
+          }}
+        >
+          REPORT
+        </button>
+      </div>
+    </header>
+  );
+}
+
+// ── Horizontal tab bar ────────────────
+function Tabs({ active, onChange }) {
+  const TABS = ['DASHBOARD', 'LIVE FEED', 'FRAUD MAP', 'SIMULATOR', 'BANK LOOKUP'];
+  return (
+    <nav style={{
+      background: 'var(--panel)',
+      borderBottom: '1px solid var(--border)',
+      padding: '0 24px',
+      display: 'flex', flexShrink: 0,
+    }}>
+      {TABS.map(t => (
+        <button
+          key={t}
+          onClick={() => onChange(t)}
+          style={{
+            background:   'none',
+            border:       'none',
+            borderBottom: `2px solid ${active === t ? 'var(--accent)' : 'transparent'}`,
+            color:        active === t ? 'var(--accent)' : 'var(--text-dim)',
+            fontFamily:   'var(--font-mono)', fontSize: 11,
+            padding:      '12px 18px',
+            cursor:       'pointer', transition: 'all 0.2s', letterSpacing: 1.5,
+          }}
+        >
+          {t}
+        </button>
+      ))}
+    </nav>
+  );
+}
+  </script>
+
+  <script type="text/babel">
+
+
+function Dashboard({ transactions, stats }) {
+  const lineRef   = React.useRef(null);
+  const pieRef    = React.useRef(null);
+  const barRef    = React.useRef(null);
+  const lineChart = React.useRef(null);
+  const pieChart  = React.useRef(null);
+  const barChart  = React.useRef(null);
+
+  const GRID  = '#152034';
+  const TICK  = '#4a6688';
+  const TFONT = { family: 'DM Mono', size: 10 };
+  const BASE  = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { enabled: true } },
+  };
+
+  // ── Initialise charts once on mount ──
+  React.useEffect(() => {
+    lineChart.current = new Chart(lineRef.current, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Fraud %',
+            data: [], borderColor: '#ff2d55',
+            backgroundColor: 'rgba(255,45,85,0.06)',
+            borderWidth: 2, pointRadius: 2, fill: true, tension: 0.4,
+          },
+          {
+            label: 'Suspect %',
+            data: [], borderColor: '#ffb300',
+            backgroundColor: 'rgba(255,179,0,0.04)',
+            borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.4,
+          },
+        ],
+      },
+      options: {
+        ...BASE,
+        scales: {
+          x: { ticks: { color: TICK, font: TFONT, maxTicksLimit: 8 }, grid: { color: GRID } },
+          y: { ticks: { color: TICK, font: TFONT }, grid: { color: GRID }, min: 0, max: 100 },
+        },
+      },
+    });
+
+    pieChart.current = new Chart(pieRef.current, {
+      type: 'doughnut',
+      data: {
+        labels: [],
+        datasets: [{
+          data: [],
+          backgroundColor: ['#ff2d55','#0ff','#ffb300','#00e676','#448aff','#ff9100','#e040fb','#69f0ae'],
+          borderColor: 'var(--card)', borderWidth: 2,
+        }],
+      },
+      options: {
+        ...BASE,
+        cutout: '68%',
+        plugins: {
+          legend: {
+            display: true, position: 'bottom',
+            labels: { color: TICK, font: TFONT, padding: 8, boxWidth: 8 },
+          },
+        },
+      },
+    });
+
+    barChart.current = new Chart(barRef.current, {
+      type: 'bar',
+      data: {
+        labels: ['0–20','21–40','41–60','61–80','81–100'],
+        datasets: [{
+          data: [0,0,0,0,0],
+          backgroundColor: ['#00e676','#69f0ae','#ffb300','#ff9100','#ff2d55'],
+          borderRadius: 4, borderSkipped: false,
+        }],
+      },
+      options: {
+        ...BASE,
+        scales: {
+          x: { ticks: { color: TICK, font: TFONT }, grid: { color: GRID } },
+          y: { ticks: { color: TICK, font: TFONT }, grid: { color: GRID } },
+        },
+      },
+    });
+
+    return () => {
+      lineChart.current?.destroy();
+      pieChart.current?.destroy();
+      barChart.current?.destroy();
+    };
+  }, []);
+
+  // ── Update charts on every new transaction ──
+  React.useEffect(() => {
+    if (!transactions.length || !lineChart.current) return;
+    const recent = transactions.slice(0, 30).reverse();
+
+    // Rolling fraud / suspect percentage line
+    const lc = lineChart.current;
+    lc.data.labels = recent.map(t =>
+      t.txn.ts.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    );
+    let runFraud = 0, runSuspect = 0;
+    const fraudPts = [], suspectPts = [];
+    recent.forEach((t, i) => {
+      if (t.result.status === 'fraud')      runFraud++;
+      if (t.result.status === 'suspicious') runSuspect++;
+      fraudPts.push(  Math.round((runFraud   / (i + 1)) * 100));
+      suspectPts.push(Math.round((runSuspect / (i + 1)) * 100));
+    });
+    lc.data.datasets[0].data = fraudPts;
+    lc.data.datasets[1].data = suspectPts;
+    lc.update('none');
+
+    // Flagged category donut
+    const cats = {};
+    transactions
+      .filter(t => t.result.status !== 'safe')
+      .forEach(t => { cats[t.txn.cat] = (cats[t.txn.cat] || 0) + 1; });
+    pieChart.current.data.labels             = Object.keys(cats).map(c => c.toUpperCase());
+    pieChart.current.data.datasets[0].data   = Object.values(cats);
+    pieChart.current.update('none');
+
+    // Risk-score bucket bar
+    const buckets = [0, 0, 0, 0, 0];
+    transactions.forEach(t => buckets[Math.min(Math.floor(t.result.score / 20), 4)]++);
+    barChart.current.data.datasets[0].data = buckets;
+    barChart.current.update('none');
+  }, [transactions]);
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr 1fr',
+      gap: 16, height: '100%', padding: 20, overflow: 'auto', alignContent: 'start',
+    }}>
+      {/* ── Stat cards ── */}
+      <div style={{ gridColumn: '1/-1', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+        <StatCard label="Total Analyzed" value={stats.total}      color="var(--accent)" icon="📡" />
+        <StatCard label="Safe"           value={stats.safe}       color="#00e676"       icon="✅" />
+        <StatCard label="Suspicious"     value={stats.suspicious} color="#ffb300"       icon="⚠️" />
+        <StatCard label="Fraud Blocked"  value={stats.fraud}      color="#ff2d55"       icon="🚨" />
+      </div>
+
+      {/* ── Charts ── */}
+      <ChartCard title="Fraud Rate Over Time"    subtitle="Rolling 30 transactions">
+        <canvas ref={lineRef} />
+      </ChartCard>
+      <ChartCard title="Fraud by Category"       subtitle="Flagged transactions only">
+        <canvas ref={pieRef} />
+      </ChartCard>
+      <ChartCard title="Risk Score Distribution" subtitle="All transactions">
+        <canvas ref={barRef} />
+      </ChartCard>
+
+      {/* ── Active detection rules ── */}
+      <div style={{
+        gridColumn: '1/-1',
+        background: 'var(--card)', border: '1px solid var(--border)',
+        borderRadius: 12, padding: '16px 20px',
+      }}>
+        <div style={{
+          fontFamily: 'var(--font-display)', fontSize: 16,
+          letterSpacing: 1, marginBottom: 14, color: 'var(--text-bright)',
+        }}>
+          ACTIVE DETECTION RULES
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 10 }}>
+          {RULES.map(r => (
+            <div key={r.id} style={{
+              background: 'var(--panel)', border: '1px solid var(--border)',
+              borderRadius: 8, padding: '10px 12px',
+            }}>
+              <div style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: '#00e676', boxShadow: '0 0 8px #00e676', marginBottom: 8,
+              }} />
+              <div style={{
+                fontSize: 11, fontFamily: 'var(--font-mono)',
+                color: 'var(--text-bright)', marginBottom: 4, fontWeight: 500,
+              }}>
+                {r.name}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                {r.desc}
+              </div>
+              <div style={{
+                marginTop: 6, fontSize: 10,
+                color: 'var(--amber)', fontFamily: 'var(--font-mono)',
+              }}>
+                +{r.weight} pts
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+  </script>
+
+  <script type="text/babel">
+// ═══════════════════════════════════════
+// TAB — Live Feed
+// src/tabs/LiveFeed.js
+// ═══════════════════════════════════════
+// Depends on globals: Badge, RiskBar  (components.js)
+
+function LiveFeed({ transactions, paused }) {
+  const COLS = ['TIME','TXN ID','USER','AMOUNT','MERCHANT','LOCATION','RISK','STATUS','REASON'];
+
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: 20, gap: 12 }}>
+
+      {/* ── Header row ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, letterSpacing: 1.5 }}>
+          LIVE TRANSACTION STREAM
+        </span>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          fontFamily: 'var(--font-mono)', fontSize: 11,
+          color: paused ? '#ffb300' : '#00e676',
+        }}>
+          <span style={{
+            width: 7, height: 7, borderRadius: '50%',
+            background: 'currentColor', display: 'inline-block',
+            animation: paused ? 'none' : 'pulse 1.4s infinite',
+          }} />
+          {paused ? 'FEED PAUSED' : 'ANALYZING LIVE'}
+        </div>
+      </div>
+
+      {/* ── Scrollable table ── */}
+      <div style={{ flex: 1, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead style={{ position: 'sticky', top: 0, background: 'var(--panel)', zIndex: 1 }}>
+            <tr>
+              {COLS.map(c => (
+                <th key={c} style={{
+                  padding: '10px 14px', textAlign: 'left',
+                  color: 'var(--text-dim)', fontFamily: 'var(--font-mono)',
+                  fontSize: 10, fontWeight: 400, letterSpacing: 1.5,
+                  borderBottom: '1px solid var(--border)',
+                }}>
+                  {c}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map(({ txn, result }, i) => (
+              <FeedRow key={txn.id} txn={txn} result={result} isNew={i === 0} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Single table row ──────────────────
+function FeedRow({ txn, result, isNew }) {
+  const c =
+    result.status === 'fraud'      ? '#ff2d55' :
+    result.status === 'suspicious' ? '#ffb300' :
+    '#00e676';
+
+  return (
+    <tr
+      className={`feed-row${isNew ? ' feed-row-new' : ''}`}
+      style={{ borderBottom: '1px solid rgba(21,32,52,0.6)' }}
+    >
+      <td style={{ padding: '9px 14px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+        {txn.ts.toLocaleTimeString()}
+      </td>
+      <td style={{ padding: '9px 14px', color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+        {txn.id}
+      </td>
+      <td style={{ padding: '9px 14px' }}>{txn.user}</td>
+      <td style={{ padding: '9px 14px', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
+        ${txn.amount.toLocaleString()}
+      </td>
+      <td style={{ padding: '9px 14px', fontSize: 11 }}>{txn.merchant}</td>
+      <td style={{ padding: '9px 14px', fontSize: 11, color: 'var(--text-dim)' }}>
+        {txn.loc.city}, {txn.loc.cc}
+      </td>
+      <td style={{ padding: '9px 14px' }}>
+        <RiskBar score={result.score} status={result.status} />
+      </td>
+      <td style={{ padding: '9px 14px' }}>
+        <Badge status={result.status} />
+      </td>
+      <td style={{ padding: '9px 14px', fontSize: 11, color: 'var(--text-dim)', maxWidth: 180 }}>
+        {result.reason}
+      </td>
+    </tr>
+  );
+}
+  </script>
+
+  <script type="text/babel">
+// ═══════════════════════════════════════
+// TAB — Fraud Map
+// src/tabs/FraudMap.js
+// ═══════════════════════════════════════
+// Depends on global: L  (Leaflet, loaded via CDN)
+
+function FraudMap({ transactions }) {
+  const mapRef      = React.useRef(null);
+  const mapInstance = React.useRef(null);
+  const markersRef  = React.useRef([]);
+
+  // ── Bootstrap Leaflet map once ────────
+  React.useEffect(() => {
+    if (mapInstance.current) return;
+    mapInstance.current = L.map(mapRef.current, {
+      center: [20, 10], zoom: 2,
+      zoomControl: true, attributionControl: false,
+    });
+    L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+      { subdomains: 'abcd', maxZoom: 19 }
+    ).addTo(mapInstance.current);
+  }, []);
+
+  // ── Plot the newest transaction as a marker ──
+  React.useEffect(() => {
+    if (!mapInstance.current || !transactions.length) return;
+    const { txn, result } = transactions[0];
+
+    const c =
+      result.status === 'fraud'      ? '#ff2d55' :
+      result.status === 'suspicious' ? '#ffb300' :
+      '#00e676';
+    const r =
+      result.status === 'fraud'      ? 10 :
+      result.status === 'suspicious' ? 7  : 5;
+
+    const marker = L.circleMarker([txn.loc.lat, txn.loc.lng], {
+      radius: r, color: c, fillColor: c, fillOpacity: 0.8, weight: 1,
+    });
+
+    marker.bindPopup(`
+      <div style="line-height:1.7">
+        <strong style="color:${c}">${result.status.toUpperCase()}</strong><br/>
+        ${txn.id}<br/>
+        <strong>$${txn.amount.toLocaleString()}</strong> @ ${txn.merchant}<br/>
+        ${txn.loc.city}, ${txn.loc.cc}<br/>
+        <span style="color:#4a6688">Score: ${result.score}/100</span>
+      </div>
+    `);
+
+    marker.addTo(mapInstance.current);
+    markersRef.current.push(marker);
+
+    // Keep at most 300 visible markers to avoid memory bloat
+    if (markersRef.current.length > 300) {
+      mapInstance.current.removeLayer(markersRef.current.shift());
+    }
+  }, [transactions.length]);   // run when a new txn arrives
+
+  const LEGEND = [['#00e676','SAFE'], ['#ffb300','SUSPICIOUS'], ['#ff2d55','FRAUD']];
+
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: 20, gap: 12 }}>
+
+      {/* Title + legend */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, letterSpacing: 1.5 }}>
+          GLOBAL FRAUD HEATMAP
+        </span>
+        <div style={{ display: 'flex', gap: 16 }}>
+          {LEGEND.map(([color, label]) => (
+            <span key={label} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-dim)',
+            }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: color, display: 'inline-block',
+              }} />
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Map container — Leaflet renders inside here */}
+      <div
+        ref={mapRef}
+        style={{ flex: 1, borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}
+      />
+    </div>
+  );
+}
+  </script>
+
+  <script type="text/babel">
+
+
+function Simulator() {
+  const [form, setForm] = React.useState({
+    amount: '', cat: 'food', country: 'US', hour: '', prevCc: 'US', avg: '',
+  });
+  const [result,   setResult]   = React.useState(null);
+  const gaugeRef   = React.useRef(null);
+  const gaugeChart = React.useRef(null);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const run = () => {
+    if (!form.amount || !form.hour || !form.avg) {
+      alert('Please fill in Amount, Hour, and User Avg fields.');
+      return;
+    }
+    const txn = {
+      amount: +form.amount,
+      cat:    form.cat,
+      loc:    { cc: form.country },
+      hour:   +form.hour,
+      prevCc: form.prevCc,
+      avg:    +form.avg,
+      recent: [],
+    };
+    setResult(analyze(txn));
+  };
+
+  // ── Gauge chart re-renders on each new result ──
+  React.useEffect(() => {
+    if (!result || !gaugeRef.current) return;
+    gaugeChart.current?.destroy();
+    const c =
+      result.status === 'fraud'      ? '#ff2d55' :
+      result.status === 'suspicious' ? '#ffb300' :
+      '#00e676';
+    gaugeChart.current = new Chart(gaugeRef.current, {
+      type: 'doughnut',
+      data: {
+        datasets: [{
+          data: [result.score, 100 - result.score],
+          backgroundColor: [c, '#152034'],
+          borderWidth: 0, circumference: 200, rotation: 260,
+        }],
+      },
+      options: {
+        responsive: false, cutout: '78%',
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      },
+    });
+  }, [result]);
+
+  // Shared input / select styles
+  const inp = {
+    background: 'var(--panel)', border: '1px solid var(--border)',
+    borderRadius: 8, padding: '10px 14px',
+    color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: 12,
+    outline: 'none', width: '100%', transition: 'border-color 0.2s',
+  };
+  const sel = { ...inp, appearance: 'none' };
+
+  const COUNTRIES = [
+    ['US','United States'], ['GB','UK'],     ['IN','India'],
+    ['NG','Nigeria'],       ['RU','Russia'], ['CN','China'],
+    ['BR','Brazil'],        ['AE','UAE'],
+  ];
+  const CATEGORIES = [
+    'food','grocery','electronics','travel',
+    'luxury','retail','crypto','health','fuel','subscription',
+  ];
+
+  const statusColor =
+    result?.status === 'fraud'      ? '#ff2d55' :
+    result?.status === 'suspicious' ? '#ffb300' :
+    '#00e676';
+
+  return (
+    <div style={{
+      padding: 20,
+      display: 'grid', gridTemplateColumns: '1fr 1fr',
+      gap: 20, height: '100%', overflow: 'auto', alignContent: 'start',
+    }}>
+
+      {/* ── Input form ── */}
+      <div style={{
+        background: 'var(--card)', border: '1px solid var(--border)',
+        borderRadius: 12, padding: 24,
+      }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, letterSpacing: 1.5, marginBottom: 6 }}>
+          TRY TO COMMIT FRAUD
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 24, lineHeight: 1.6 }}>
+          Design a transaction and see if FraudShield catches it. Can you beat the engine?
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <Field label="Amount (USD)">
+            <input
+              style={inp} type="number" placeholder="e.g. 9999"
+              value={form.amount} onChange={e => set('amount', e.target.value)}
+            />
+          </Field>
+
+          <Field label="Merchant Category">
+            <select style={sel} value={form.cat} onChange={e => set('cat', e.target.value)}>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+
+          <Field label="Transaction Country">
+            <select style={sel} value={form.country} onChange={e => set('country', e.target.value)}>
+              {COUNTRIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </Field>
+
+          <Field label="Previous Country">
+            <select style={sel} value={form.prevCc} onChange={e => set('prevCc', e.target.value)}>
+              {COUNTRIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </Field>
+
+          <Field label="Hour of Transaction (0–23)">
+            <input
+              style={inp} type="number" min={0} max={23} placeholder="e.g. 3"
+              value={form.hour} onChange={e => set('hour', e.target.value)}
+            />
+          </Field>
+
+          <Field label="User Avg Spend ($)">
+            <input
+              style={inp} type="number" placeholder="e.g. 50"
+              value={form.avg} onChange={e => set('avg', e.target.value)}
+            />
+          </Field>
+        </div>
+
+        <button
+          onClick={run}
+          style={{
+            marginTop: 20, width: '100%',
+            background: 'var(--accent)', color: '#000',
+            border: 'none', borderRadius: 8, padding: 13,
+            fontFamily: 'var(--font-display)', fontSize: 18,
+            letterSpacing: 2, cursor: 'pointer',
+          }}
+        >
+          ANALYZE TRANSACTION
+        </button>
+      </div>
+
+      {/* ── Result panel ── */}
+      {result ? (
+        <div style={{
+          background: 'var(--card)', border: '1px solid var(--border)',
+          borderRadius: 12, padding: 24,
+          display: 'flex', flexDirection: 'column', gap: 16,
+        }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, letterSpacing: 1.5 }}>
+            ANALYSIS RESULT
+          </div>
+
+          {/* Gauge + verdict */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+            <div style={{ position: 'relative', width: 160, height: 120, flexShrink: 0 }}>
+              <canvas ref={gaugeRef} width={160} height={160} />
+              <div style={{
+                position: 'absolute', top: '55%', left: '50%',
+                transform: 'translate(-50%,-50%)', textAlign: 'center',
+              }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 36, color: statusColor }}>
+                  {result.score}
+                </div>
+                <div style={{
+                  fontSize: 10, color: 'var(--text-dim)',
+                  fontFamily: 'var(--font-mono)', letterSpacing: 1,
+                }}>
+                  RISK SCORE
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <Badge status={result.status} />
+              <div style={{ marginTop: 10, fontSize: 13, fontWeight: 500, color: statusColor }}>
+                {result.status === 'fraud'
+                  ? '🚨 Transaction BLOCKED'
+                  : result.status === 'suspicious'
+                    ? '⚠️ Flagged for review'
+                    : '✅ Transaction APPROVED'}
+              </div>
+            </div>
+          </div>
+
+          {/* Fired rules */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'auto', flex: 1 }}>
+            {result.fired.map(r => (
+              <div key={r.id} style={{
+                display: 'flex', gap: 10, padding: '9px 12px',
+                background: 'var(--red-dim)',
+                border: '1px solid rgba(255,45,85,0.2)',
+                borderRadius: 8, borderLeft: '3px solid #ff2d55',
+              }}>
+                <span style={{ color: '#ff2d55', fontSize: 14 }}>⚠</span>
+                <div>
+                  <div style={{ fontSize: 12, color: '#ff2d55', fontWeight: 500 }}>{r.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>{r.desc}</div>
+                </div>
+              </div>
+            ))}
+
+            {/* Show up to 3 passing rules for context */}
+            {result.clean.slice(0, 3).map(r => (
+              <div key={r.id} style={{
+                display: 'flex', gap: 10, padding: '9px 12px',
+                background: 'var(--green-dim)',
+                border: '1px solid rgba(0,230,118,0.15)',
+                borderRadius: 8, borderLeft: '3px solid #00e676',
+              }}>
+                <span style={{ color: '#00e676', fontSize: 14 }}>✓</span>
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 500 }}>{r.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>Passed</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        /* Empty state */
+        <div style={{
+          background: 'var(--card)', border: '1px solid var(--border)',
+          borderRadius: 12, padding: 24,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{ textAlign: 'center', color: 'var(--text-dim)' }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🎯</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+              Fill in the form and hit Analyze
+            </div>
+            <div style={{ fontSize: 11, marginTop: 8 }}>Can you fool the system?</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+  </script>
+
+  <script type="text/babel">
+
+function BankLookup() {
+  const [query,   setQuery]   = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [results, setResults] = React.useState(null);
+  const [error,   setError]   = React.useState(null);
+
+  const search = async () => {
+    if (!query.trim()) return;
+    setLoading(true);
+    setError(null);
+    setResults(null);
+
+    try {
+      const [fdicRes, cfpbRes] = await Promise.all([
+        fetch(
+          `https://banks.data.fdic.gov/api/institutions` +
+          `?search=${encodeURIComponent(query)}` +
+          `&fields=NAME,CITY,STNAME,ASSET,INSURED,ACTIVE` +
+          `&limit=3&sort_by=ASSET&sort_order=DESC&output=json`
+        ),
+        fetch(
+          `https://api.consumerfinance.gov/data/complaints` +
+          `?company=${encodeURIComponent(query)}&field=all&size=100&format=json`
+        ),
+      ]);
+
+      const fdic = await fdicRes.json();
+      const cfpb = await cfpbRes.json();
+
+      const banks      = fdic.data || [];
+      const complaints = cfpb.hits?.hits?.map(h => h._source) || [];
+
+      // Aggregate by issue / product category
+      const counts = {};
+      complaints.forEach(c => {
+        const key = c.issue || c.product || 'Other';
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      const topCats = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6);
+
+      setResults({ banks, complaints: topCats, total: complaints.length });
+    } catch {
+      setError('Could not fetch data. Check your internet connection.');
+    }
+
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ padding: 20, maxWidth: 860, margin: '0 auto', height: '100%', overflow: 'auto' }}>
+
+      {/* Title */}
+      <div style={{
+        fontFamily: 'var(--font-display)', fontSize: 28,
+        letterSpacing: 2, marginBottom: 6,
+      }}>
+        BANK SAFETY CHECKER
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 24 }}>
+        Search any US bank to see live FDIC insurance status and CFPB consumer complaint data.
+      </div>
+
+      {/* Search bar */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && search()}
+          placeholder="e.g. Wells Fargo, Chase, Bank of America…"
+          style={{
+            flex: 1,
+            background: 'var(--card)', border: '1px solid var(--border)',
+            borderRadius: 10, padding: '12px 16px',
+            color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: 13,
+            outline: 'none',
+          }}
+        />
+        <button
+          onClick={search}
+          style={{
+            background: 'var(--accent)', color: '#000',
+            border: 'none', borderRadius: 10, padding: '12px 28px',
+            fontFamily: 'var(--font-display)', fontSize: 18,
+            letterSpacing: 2, cursor: 'pointer',
+          }}
+        >
+          SEARCH
+        </button>
+      </div>
+
+      {/* States */}
+      {loading && (
+        <div style={{
+          textAlign: 'center', color: 'var(--text-dim)',
+          fontFamily: 'var(--font-mono)', fontSize: 13, padding: 40,
+        }}>
+          ⏳ Fetching from FDIC &amp; CFPB…
+        </div>
+      )}
+      {error && (
+        <div style={{ color: '#ff2d55', fontFamily: 'var(--font-mono)', fontSize: 12, padding: 20 }}>
+          {error}
+        </div>
+      )}
+
+      {/* Results */}
+      {results && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {results.banks.length === 0 && (
+            <div style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+              No FDIC institutions found for "{query}".
+            </div>
+          )}
+
+          {results.banks.map((b, i) => {
+            const d       = b.data;
+            const insured = d.INSURED === '1' || d.INSURED === 1;
+            return (
+              <div key={i} style={{
+                background: 'var(--card)', border: '1px solid var(--border)',
+                borderRadius: 12, padding: 20,
+              }}>
+                {/* Bank name */}
+                <div style={{
+                  fontFamily: 'var(--font-display)', fontSize: 22,
+                  letterSpacing: 1, marginBottom: 12,
+                }}>
+                  {d.NAME}
+                </div>
+
+                {/* Pill tags */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                  <Pill color={insured ? '#00e676' : '#ff2d55'}>
+                    {insured ? '✓ FDIC INSURED' : '✗ NOT INSURED'}
+                  </Pill>
+                  <Pill color="var(--accent)">📍 {d.CITY}, {d.STNAME}</Pill>
+                  <Pill color="var(--blue)">
+                    💰 Assets: ${d.ASSET ? (d.ASSET / 1000).toFixed(1) + 'B' : 'N/A'}
+                  </Pill>
+                  <Pill color="#ffb300">📋 {results.total} Complaints</Pill>
+                </div>
+
+                {/* CFPB complaint breakdown */}
+                {results.complaints.length > 0 && (
+                  <>
+                    <div style={{
+                      fontSize: 10, color: 'var(--text-dim)',
+                      fontFamily: 'var(--font-mono)', letterSpacing: 2, marginBottom: 10,
+                    }}>
+                      TOP COMPLAINT CATEGORIES (CFPB)
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {results.complaints.map(([issue, count], j) => (
+                        <div key={j} style={{
+                          display: 'flex', alignItems: 'center', gap: 12,
+                          background: 'var(--panel)', borderRadius: 8, padding: '8px 12px',
+                        }}>
+                          <span style={{ flex: 1, fontSize: 12 }}>{issue}</span>
+                          <div style={{
+                            width: 120, height: 4,
+                            background: 'var(--border)', borderRadius: 2, overflow: 'hidden',
+                          }}>
+                            <div style={{
+                              width: `${(count / results.complaints[0][1]) * 100}%`,
+                              height: '100%', background: '#ff2d55', borderRadius: 2,
+                            }} />
+                          </div>
+                          <span style={{
+                            fontFamily: 'var(--font-mono)', fontSize: 12,
+                            color: '#ff2d55', minWidth: 32, textAlign: 'right',
+                          }}>
+                            {count}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+  </script>
+
+  <!-- ═══════════════════════════════════
+       5. MODALS
+       ═══════════════════════════════════ -->
+  <script type="text/babel">
+
+function ReportModal({ stats, onClose }) {
+  const fraudRate = stats.total
+    ? ((stats.fraud / stats.total) * 100).toFixed(1)
+    : '0.0';
+
+  const download = () => {
+    const lines = [
+      'FRAUDSHIELD REPORT',
+      new Date().toLocaleString(),
+      '='.repeat(40),
+      '',
+      `Total Analyzed : ${stats.total}`,
+      `Safe           : ${stats.safe}`,
+      `Suspicious     : ${stats.suspicious}`,
+      `Fraud Blocked  : ${stats.fraud}`,
+      `Fraud Rate     : ${fraudRate}%`,
+      '',
+      stats.fraud > 5
+        ? '⚠ HIGH FRAUD VOLUME — immediate review recommended'
+        : '✓ Fraud levels within normal parameters',
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = `fraudshield-report-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const ROWS = [
+    ['TOTAL ANALYZED', stats.total,      'var(--accent)'],
+    ['SAFE',           stats.safe,        '#00e676'],
+    ['SUSPICIOUS',     stats.suspicious,  '#ffb300'],
+    ['FRAUD BLOCKED',  stats.fraud,       '#ff2d55'],
+    ['FRAUD RATE',     `${fraudRate}%`,   '#ff2d55'],
+  ];
+
+  return (
+    /* Backdrop — click outside to close */
+    <div
+      onClick={e => e.target === e.currentTarget && onClose()}
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+        zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div style={{
+        background: 'var(--card)', border: '1px solid var(--border)',
+        borderRadius: 16, padding: 32, width: 500, maxHeight: '80vh', overflow: 'auto',
+      }}>
+
+        {/* Header */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          marginBottom: 24,
+        }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 26, letterSpacing: 2 }}>
+            FRAUD REPORT
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: '1px solid var(--border)',
+              color: 'var(--text-dim)', borderRadius: 8,
+              padding: '4px 10px', cursor: 'pointer', fontSize: 16,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Stat rows */}
+        {ROWS.map(([label, value, color]) => (
+          <div key={label} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '14px 16px', background: 'var(--panel)',
+            borderRadius: 8, marginBottom: 8,
+          }}>
+            <span style={{
+              fontSize: 11, color: 'var(--text-dim)',
+              fontFamily: 'var(--font-mono)', letterSpacing: 1.5,
+            }}>
+              {label}
+            </span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 24, color }}>
+              {value}
+            </span>
+          </div>
+        ))}
+
+        {/* Status banner */}
+        <div style={{
+          marginTop: 8, padding: '12px 16px',
+          background: 'var(--red-dim)',
+          border: '1px solid rgba(255,45,85,0.2)',
+          borderRadius: 8, fontSize: 12,
+          color: stats.fraud > 5 ? '#ff2d55' : '#00e676',
+        }}>
+          {stats.fraud > 5
+            ? '⚠ High fraud volume — immediate review recommended'
+            : '✓ Fraud levels within normal parameters'}
+        </div>
+
+        {/* Download */}
+        <button
+          onClick={download}
+          style={{
+            marginTop: 20, width: '100%',
+            background: 'var(--accent)', color: '#000',
+            border: 'none', borderRadius: 8, padding: 12,
+            fontFamily: 'var(--font-display)', fontSize: 18,
+            letterSpacing: 2, cursor: 'pointer',
+          }}
+        >
+          DOWNLOAD REPORT
+        </button>
+      </div>
+    </div>
+  );
+}
+  </script>
+
+  <script type="text/babel">
+
+const { useState, useEffect, useCallback, useMemo } = React;
+
+function App() {
+  const [tab,          setTab]          = useState('DASHBOARD');
+  const [transactions, setTransactions] = useState([]);
+  const [paused,       setPaused]       = useState(false);
+  const [showReport,   setShowReport]   = useState(false);
+
+  // Derived counters — only recalculated when transactions array changes
+  const stats = useMemo(() => ({
+    total:      transactions.length,
+    safe:       transactions.filter(t => t.result.status === 'safe').length,
+    suspicious: transactions.filter(t => t.result.status === 'suspicious').length,
+    fraud:      transactions.filter(t => t.result.status === 'fraud').length,
+  }), [transactions]);
+
+  const addTxn = useCallback(() => {
+    const txn    = genTxn();
+    const result = analyze(txn);
+    setTransactions(prev => [{ txn, result }, ...prev].slice(0, 200));
+  }, []);
+
+  // Seed 12 transactions on first load
+  useEffect(() => {
+    const seed = [];
+    for (let i = 0; i < 12; i++) {
+      const txn    = genTxn();
+      const result = analyze(txn);
+      seed.push({ txn, result });
+    }
+    setTransactions(seed);
+  }, []);
+
+  // Live stream: new transaction every 1.8 s
+  useEffect(() => {
+    if (paused) return;
+    const id = setInterval(addTxn, 1800);
+    return () => clearInterval(id);
+  }, [paused, addTxn]);
+
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--void)' }}>
+      <Header
+        stats={stats}
+        paused={paused}
+        onToggle={() => setPaused(p => !p)}
+        onReport={() => setShowReport(true)}
+      />
+      <Tabs active={tab} onChange={setTab} />
+
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        {tab === 'DASHBOARD'   && <Dashboard   transactions={transactions} stats={stats} />}
+        {tab === 'LIVE FEED'   && <LiveFeed    transactions={transactions} paused={paused} />}
+        {tab === 'FRAUD MAP'   && <FraudMap    transactions={transactions} />}
+        {tab === 'SIMULATOR'   && <Simulator />}
+        {tab === 'BANK LOOKUP' && <BankLookup />}
+      </div>
+
+      {showReport && (
+        <ReportModal stats={stats} onClose={() => setShowReport(false)} />
+      )}
+    </div>
+  );
+}
+
+// ── Mount ─────────────────────────────
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+
+</body>
+</html>
