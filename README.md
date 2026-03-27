@@ -1,6 +1,9 @@
 # Fraudshield
 A real-time financial fraud detection dashboard built with React, Chart.js, and Leaflet.js. Simulates a live transaction stream, scores each transaction against a rule-based fraud engine, and visualises results across five interactive views.
 
+## Live Demo
+[Click here!](https://fraudshield-green.vercel.app/)
+
 ## Tech Stack
 
 | Library | Version | Purpose |
@@ -20,5 +23,3 @@ A real-time financial fraud detection dashboard built with React, Chart.js, and 
 
 The Bank Lookup tab makes live requests to both APIs — internet access required for that tab only.
 
-## Live Demo
-[Click here!](https://fraudshield-green.vercel.app/)
