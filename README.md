@@ -19,3 +19,6 @@ A real-time financial fraud detection dashboard built with React, Chart.js, and 
 | [CFPB Consumer Complaints](https://api.consumerfinance.gov/) | Complaint volume by product/issue category |
 
 The Bank Lookup tab makes live requests to both APIs — internet access required for that tab only.
+
+## Live Demo
+[Click here!](https://fraudshield-green.vercel.app/)
